@@ -1,0 +1,81 @@
+import requests
+import time
+
+wallets = ["0x123...", "0x456...", ...]  # список кошельков для проверки
+token_address = "0xabc..."  # адрес токена для поиска
+
+# Функция для получения списка транзакций заданного токена за последние 24 часа
+def get_token_transactions():
+    url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={token_address}&startblock=0&endblock=999999999&sort=desc&apikey=YourApiKeyToken"
+    response = requests.get(url)
+    data = response.json()["result"]
+    return [d for d in data if int(d["timeStamp"]) >= (time.time() - 24*60*60)]
+
+# Функция для поиска кошельков, где были транзакции по заданному токену за последние 24 часа
+def find_token_wallets():
+    tx_list = get_token_transactions()
+    wallet_list = set()
+    for tx in tx_list:
+        if tx["from"] in wallets:
+            wallet_list.add(tx["from"])
+        if tx["to"] in wallets:
+            wallet_list.add(tx["to"])
+    return wallet_list
+
+# Функция для подсчета суммы заданного токена на заданных кошельках
+def get_token_balance():
+    total_balance = 0
+    for wallet in wallets:
+        url = f"https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress={token_address}&address={wallet}&tag=latest&apikey=YourApiKeyToken"
+        response = requests.get(url)
+        balance = int(response.json()["result"])
+        total_balance += balance
+        print(f"{wallet}: {balance}")
+    print(f"Total: {total_balance}")
+
+# Функция для подсчета суммы всех транзакций с переводом заданного токена с заданных кошельков
+def get_token_transfers():
+    total_transfers = 0
+    for wallet in wallets:
+        url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={wallet}&startblock=0&endblock=999999999&sort=desc&apikey=YourApiKeyToken"
+        response = requests.get(url)
+        data = response.json()["result"]
+        transfers = sum(int(d["value"]) for d in data if d["tokenSymbol"] == "TOKEN" and d["to"] not in wallets)
+        total_transfers += transfers
+        print(f"{wallet}: {transfers}")
+    print(f"Total: {total_transfers}")
+
+def get_token_deposits():
+    total_deposits = 0
+    for wallet in wallets:
+        url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={wallet}&startblock=0&endblock=999999999&sort=desc&apikey=YourApiKeyToken"
+        response = requests.get(url)
+        data = response.json()["result"]
+        deposits = sum(int(d["value"]) for d in data if d["tokenSymbol"] == "TOKEN" and d["from"] not in wallets)
+        total_deposits += deposits
+        print(f"{wallet}: {deposits}")
+    print(f"Total: {total_deposits}")
+
+import datetime
+
+def get_top_token_deposit_wallets():
+    wallets_deposits = {}
+    for wallet in wallets:
+        url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={wallet}&startblock=0&endblock=999999999&sort=desc&apikey=YourApiKeyToken"
+        response = requests.get(url)
+        data = response.json()["result"]
+        deposits = sum(int(d["value"]) for d in data if d["tokenSymbol"] == "TOKEN" and d["from"] not in wallets and int(d["timeStamp"]) >= int(datetime.datetime.now().timestamp()) - 24*60*60)
+        wallets_deposits[wallet] = deposits
+    top_wallets = sorted(wallets_deposits.items(), key=lambda x: x[1], reverse=True)[:10]
+    return top_wallets
+
+def get_top_token_transfer_wallets():
+    wallets_transfers = {}
+    for wallet in wallets:
+        url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={wallet}&startblock=0&endblock=999999999&sort=desc&apikey=YourApiKeyToken"
+        response = requests.get(url)
+        data = response.json()["result"]
+        transfers = sum(int(d["value"]) for d in data if d["tokenSymbol"] == "TOKEN" and d["from"] in wallets and d["to"] not in wallets and int(d["timeStamp"]) >= int(datetime.datetime.now().timestamp()) - 24*60*60)
+        wallets_transfers[wallet] = transfers
+    top_wallets = sorted(wallets_transfers.items(), key=lambda x: x[1], reverse=True)[:10]
+    return top_wallets
